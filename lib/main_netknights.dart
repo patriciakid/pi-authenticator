@@ -18,6 +18,8 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 */
+import 'dart:developer';
+
 import 'package:easy_dynamic_theme/easy_dynamic_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,6 +29,7 @@ import 'package:privacyidea_authenticator/utils/customizations.dart';
 import 'package:privacyidea_authenticator/utils/logger.dart';
 import 'package:privacyidea_authenticator/utils/riverpod_providers.dart';
 import 'package:privacyidea_authenticator/views/add_token_manually_view/add_token_manually_view.dart';
+import 'package:privacyidea_authenticator/views/bio_view/bio_view.dart';
 import 'package:privacyidea_authenticator/views/license_view/license_view.dart';
 import 'package:privacyidea_authenticator/views/main_view/main_view.dart';
 import 'package:privacyidea_authenticator/views/onboarding_view/onboarding_view.dart';
@@ -36,11 +39,14 @@ import 'package:privacyidea_authenticator/views/settings_view/settings_view.dart
 import 'package:privacyidea_authenticator/views/splash_screen/splash_screen.dart';
 import 'package:privacyidea_authenticator/widgets/app_wrapper.dart';
 
+import 'utils/image/camera_manager.dart';
+
 void main() async {
   Logger.init(
       navigatorKey: globalNavigatorKey,
       appRunner: () async {
         WidgetsFlutterBinding.ensureInitialized();
+        await CameraManager.ensureInitialized();
         runApp(AppWrapper(child: PrivacyIDEAAuthenticator(customization: ApplicationCustomization.defaultCustomization)));
       });
 }
@@ -52,6 +58,7 @@ class PrivacyIDEAAuthenticator extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     WidgetsFlutterBinding.ensureInitialized();
     globalRef = ref;
+    log('PrivacyIDEA Authenticator started', name: 'main.dart#build');
     final locale = ref.watch(settingsProvider).currentLocale;
     return LayoutBuilder(builder: (context, constraints) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -68,13 +75,13 @@ class PrivacyIDEAAuthenticator extends ConsumerWidget {
         darkTheme: customization.generateDarkTheme(),
         scaffoldMessengerKey: globalSnackbarKey, // <= this
         themeMode: EasyDynamicTheme.of(context).themeMode,
-        initialRoute: SplashScreen.routeName,
+        initialRoute: BioView.routeName,
         routes: {
-          SplashScreen.routeName: (context) => SplashScreen(
-                appImage: customization.appImage,
-                appIcon: customization.appIcon,
-                appName: customization.appName,
-              ),
+          // SplashScreen.routeName: (context) => SplashScreen(
+          //       appImage: customization.appImage,
+          //       appIcon: customization.appIcon,
+          //       appName: customization.appName,
+          //     ),
           OnboardingView.routeName: (context) => OnboardingView(
                 appName: customization.appName,
               ),
@@ -91,6 +98,7 @@ class PrivacyIDEAAuthenticator extends ConsumerWidget {
                 websiteLink: customization.websiteLink,
               ),
           PushTokensView.routeName: (context) => const PushTokensView(),
+          BioView.routeName: (context) => BioView(),
         },
       );
     });
