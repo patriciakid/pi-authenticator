@@ -1,47 +1,96 @@
 // import 'dart:ffi';
 import 'dart:developer';
-import 'dart:ffi';
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
+import 'dart:ui';
 // import 'dart:ui' as ui;
 import 'package:camera/camera.dart';
-import 'package:flutter/widgets.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
-// import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:image/image.dart' as imglib;
 import 'package:mutex/mutex.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:privacyidea_authenticator/utils/image/camera_manager.dart';
-// import 'package:privacyidea_authenticator/utils/image/camera_manager.dart';
+
+import '../logger.dart';
 
 class ImageConverter {
-  static Mutex _mutex = Mutex();
+  static final Mutex _mutex = Mutex();
   final imglib.Image image;
+  final Size size;
 
   ImageConverter({
     required this.image,
-  });
+  }) : size = Size(image.width.toDouble(), image.height.toDouble());
 
-  factory ImageConverter.fromCameraImage(CameraImage image, int rotation) {
+  factory ImageConverter.fromCameraImage(CameraImage image, int rotation, {bool isFrontCamera = false}) {
     if (image.format.group != ImageFormatGroup.yuv420 || image.planes.length != 3) {
       throw ArgumentError('Only support YUV_420 format');
     }
-    return ImageConverter._rotatedCameraImage(image, rotation);
+    return ImageConverter._rotatedCameraImage(image, rotation: rotation, mirror: isFrontCamera);
   }
 
-  factory ImageConverter._rotatedCameraImage(CameraImage image, int rotation) {
+  factory ImageConverter._rotatedCameraImage(CameraImage image, {required int rotation, required bool mirror}) {
+    rotation = 360 - rotation; // if the rotation is 90, we need to rotate by 270 to get the correct rotation
     const alpha = 0xFF;
     final height = image.height;
     final width = image.width;
     final yPlane = image.planes[0];
     final uPlane = image.planes[1];
     final vPlane = image.planes[2];
-    try {
-      final int outputWidth = rotation == 90 || rotation == 270 ? height : width;
-      final int outputHeight = rotation == 90 || rotation == 270 ? width : height;
-      final int uvRowStride = uPlane.bytesPerRow;
-      final int uvPixelStride = uPlane.bytesPerPixel!;
+    final int outputWidth = rotation == 90 || rotation == 270 ? height : width;
+    final int outputHeight = rotation == 90 || rotation == 270 ? width : height;
+    final int uvRowStride = uPlane.bytesPerRow;
+    final int uvPixelStride = uPlane.bytesPerPixel!;
+    Function(int x, int y) getNewX;
+    Function(int x, int y) getNewY;
 
+    Logger.warning("Rotation: $rotation, Flip: $mirror", name: "ImageConverter._rotatedCameraImage");
+
+    switch (rotation) {
+      case 90:
+        if (mirror) {
+          // rotate by 90 and flip horizontally
+          getNewX = (x, y) => height - y - 1;
+          getNewY = (x, y) => width - x - 1;
+        } else {
+          getNewX = (x, y) => y;
+          getNewY = (x, y) => width - x - 1;
+        }
+        break;
+      case 180:
+        if (mirror) {
+          // rotate by 180 and flip horizontally
+          getNewX = (x, y) => x;
+          getNewY = (x, y) => height - y - 1;
+        } else {
+          getNewX = (x, y) => width - x - 1;
+          getNewY = (x, y) => height - y - 1;
+        }
+        break;
+      case 270:
+        if (mirror) {
+          // rotate by 270 and flip horizontally
+          getNewX = (x, y) => y;
+          getNewY = (x, y) => outputHeight - x;
+        } else {
+          getNewX = (x, y) => height - y - 1;
+          getNewY = (x, y) => x;
+        }
+        break;
+
+      default:
+        if (mirror) {
+          // flip horizontally
+          getNewX = (x, y) => x;
+          getNewY = (x, y) => height - y - 1;
+        } else {
+          getNewX = (x, y) => x;
+          getNewY = (x, y) => y;
+        }
+        break;
+    }
+
+    try {
       // imgLib -> Image package from https://pub.dartlang.org/packages/image
       var img = imglib.Image(width: outputWidth, height: outputHeight); // Create Image buffer
 
@@ -61,24 +110,11 @@ class ImageConverter {
           final int b = (yp + up * 1814 / 1024 - 227).round().clamp(0, 255);
           // color: 0x FF  FF  FF  FF
           //           A   B   G   R
+          final newX = getNewX(x, y);
+          final newY = getNewY(x, y);
 
-          switch (rotation) {
-            case 90:
-              if (!(img.isBoundsSafe(outputWidth - y - 1, x))) break;
-              img.setPixelRgba(outputWidth - y - 1, x, r, g, b, alpha);
-              break;
-            case 180:
-              if (!(img.isBoundsSafe(outputWidth - x - 1, outputHeight - y - 1))) break;
-              img.setPixelRgba(outputWidth - x - 1, outputHeight - y - 1, r, g, b, alpha);
-              break;
-            case 270:
-              if (!(img.isBoundsSafe(y, outputHeight - x - 1))) break;
-              img.setPixelRgba(y, outputHeight - x - 1, r, g, b, alpha);
-              break;
-            default:
-              if (!(img.isBoundsSafe(x, y))) break;
-              img.setPixelRgba(x, y, r, g, b, alpha);
-              break;
+          if ((img.isBoundsSafe(newX, newY))) {
+            img.setPixelRgba(newX, newY, r, g, b, alpha);
           }
         }
       }
