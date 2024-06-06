@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
+import 'dart:ui';
 
 import 'package:expandable/expandable.dart';
 import 'package:flutter/material.dart';
@@ -113,108 +114,126 @@ class _TokenFolderExpandableState extends ConsumerState<TokenFolderExpandable> w
               LockTokenFolderAction(folder: widget.folder),
             ],
           ),
-          child: Padding(
-            padding: const EdgeInsets.only(left: 15, right: 0),
-            child: DragTarget<Token>(
-              onWillAcceptWithDetails: (details) {
-                if (details.data.folderId != widget.folder.folderId) {
-                  if (widget.folder.isLocked) return true;
-                  _expandTimer?.cancel();
-                  _expandTimer = Timer(const Duration(milliseconds: 500), () {
-                    if (!mounted) return;
-                    expandableController.value = true;
-                  });
-                  return true;
-                }
-                return false;
-              },
-              onLeave: (data) => _expandTimer?.cancel(),
-              onAcceptWithDetails: (details) {
-                log('Moving token to folder ${widget.folder.label}', name: 'TokenFolderExpandable');
-                ref.read(tokenProvider.notifier).updateToken(
-                      details.data,
-                      (p0) => p0.copyWith(folderId: () => widget.folder.folderId, sortIndex: (widget.folder.sortIndex!) + 1),
-                    );
-              },
-              builder: (context, willAccept, willReject) => Center(
-                child: Container(
-                  margin: widget.folder.isExpanded ? null : const EdgeInsets.only(right: 8),
-                  padding: widget.folder.isExpanded ? const EdgeInsets.only(right: 8) : null,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: willAccept.isNotEmpty ? Theme.of(context).dividerColor : null,
-                    borderRadius: BorderRadius.only(
-                      topRight: widget.folder.isExpanded ? const Radius.circular(0) : const Radius.circular(8),
-                      topLeft: const Radius.circular(8),
-                      bottomRight: widget.folder.isExpanded ? const Radius.circular(0) : const Radius.circular(8),
-                      bottomLeft: widget.folder.isExpanded ? const Radius.circular(0) : const Radius.circular(8),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.max,
-                    children: [
-                      RotationTransition(
-                          turns: Tween(begin: 0.25, end: 0.0).animate(animationController),
-                          child: SizedBox.square(
-                            dimension: 25,
-                            child:
-                                (tokens.isEmpty || (tokens.length == 1 && tokens.first == draggingSortable)) ? null : const Icon(Icons.arrow_forward_ios_sharp),
-                          )),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        flex: 2,
-                        child: Text(
-                          widget.folder.label,
-                          style: Theme.of(context).textTheme.titleLarge,
-                          overflow: TextOverflow.fade,
-                          softWrap: false,
+          child: Stack(
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(left: 15, right: 0),
+                child: DragTarget<Token>(
+                  onWillAcceptWithDetails: (details) {
+                    if (details.data.folderId != widget.folder.folderId) {
+                      if (widget.folder.isLocked) return true;
+                      _expandTimer?.cancel();
+                      _expandTimer = Timer(const Duration(milliseconds: 500), () {
+                        if (!mounted) return;
+                        expandableController.value = true;
+                      });
+                      return true;
+                    }
+                    return false;
+                  },
+                  onLeave: (data) => _expandTimer?.cancel(),
+                  onAcceptWithDetails: (details) {
+                    log('Moving token to folder ${widget.folder.label}', name: 'TokenFolderExpandable');
+                    ref.read(tokenProvider.notifier).updateToken(
+                          details.data,
+                          (p0) => p0.copyWith(folderId: () => widget.folder.folderId, sortIndex: (widget.folder.sortIndex!) + 1),
+                        );
+                  },
+                  builder: (context, willAccept, willReject) => Center(
+                    child: Container(
+                      margin: widget.folder.isExpanded ? null : const EdgeInsets.only(right: 8),
+                      padding: widget.folder.isExpanded ? const EdgeInsets.only(right: 8) : null,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: willAccept.isNotEmpty ? Theme.of(context).dividerColor : null,
+                        borderRadius: BorderRadius.only(
+                          topRight: widget.folder.isExpanded ? const Radius.circular(0) : const Radius.circular(8),
+                          topLeft: const Radius.circular(8),
+                          bottomRight: widget.folder.isExpanded ? const Radius.circular(0) : const Radius.circular(8),
+                          bottomLeft: widget.folder.isExpanded ? const Radius.circular(0) : const Radius.circular(8),
                         ),
                       ),
-                      CustomTrailing(
-                        child: Center(
-                          child: (tokens.isEmpty || (tokens.length == 1 && tokens.first == draggingSortable))
-                              ? Icon(
-                                  Icons.folder_open,
-                                  color: Theme.of(context).listTileTheme.iconColor,
-                                )
-                              : Stack(
-                                  alignment: Alignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.folder,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.max,
+                        children: [
+                          RotationTransition(
+                              turns: Tween(begin: 0.25, end: 0.0).animate(animationController),
+                              child: SizedBox.square(
+                                dimension: 25,
+                                child: (tokens.isEmpty || (tokens.length == 1 && tokens.first == draggingSortable))
+                                    ? null
+                                    : const Icon(Icons.arrow_forward_ios_sharp),
+                              )),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              widget.folder.label,
+                              style: Theme.of(context).textTheme.titleLarge,
+                              overflow: TextOverflow.fade,
+                              softWrap: false,
+                            ),
+                          ),
+                          CustomTrailing(
+                            child: Center(
+                              child: (tokens.isEmpty || (tokens.length == 1 && tokens.first == draggingSortable))
+                                  ? Icon(
+                                      Icons.folder_open,
                                       color: Theme.of(context).listTileTheme.iconColor,
-                                    ),
-                                    if (widget.folder.isLocked)
-                                      Positioned.fill(
-                                        child: LayoutBuilder(
-                                          builder: (context, constraints) {
-                                            return Container(
-                                              padding: EdgeInsets.only(left: widget.folder.isExpanded ? 2 : 0, top: 1),
-                                              child: Icon(
-                                                widget.folder.isExpanded ? MdiIcons.lockOpenVariant : MdiIcons.lock,
-                                                color: Theme.of(context).extension<ActionTheme>()?.lockColor,
-                                                size: constraints.maxHeight / 2.1,
-                                                shadows: [
-                                                  Shadow(
-                                                    color: Theme.of(context).scaffoldBackgroundColor.withOpacity(0.3),
-                                                    offset: const Offset(0.5, 0.5),
-                                                    blurRadius: 2,
-                                                  )
-                                                ],
-                                              ),
-                                            );
-                                          },
+                                    )
+                                  : Stack(
+                                      alignment: Alignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.folder,
+                                          color: Theme.of(context).listTileTheme.iconColor,
                                         ),
-                                      ),
-                                  ],
-                                ),
-                        ),
+                                        if (widget.folder.isLocked)
+                                          Positioned.fill(
+                                            child: LayoutBuilder(
+                                              builder: (context, constraints) {
+                                                return Container(
+                                                  padding: EdgeInsets.only(left: widget.folder.isExpanded ? 2 : 0, top: 1),
+                                                  child: Icon(
+                                                    widget.folder.isExpanded ? MdiIcons.lockOpenVariant : MdiIcons.lock,
+                                                    color: Theme.of(context).extension<ActionTheme>()?.lockColor,
+                                                    size: constraints.maxHeight / 2.1,
+                                                    shadows: [
+                                                      Shadow(
+                                                        color: Theme.of(context).scaffoldBackgroundColor.withOpacity(0.3),
+                                                        offset: const Offset(0.5, 0.5),
+                                                        blurRadius: 2,
+                                                      )
+                                                    ],
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
+              Positioned.fill(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(
+                      width: 3,
+                      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+                      decoration: ShapeDecoration(shape: SwipeIndicatorShape(color: Theme.of(context).dividerColor)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -267,4 +286,45 @@ class _TokenFolderExpandableState extends ConsumerState<TokenFolderExpandable> w
             ),
     );
   }
+}
+
+class SwipeIndicatorShape extends ShapeBorder {
+  final Color color;
+  final double strokeWidth;
+
+  const SwipeIndicatorShape({
+    required this.color,
+    this.strokeWidth = 3.0,
+  });
+
+  @override
+  EdgeInsetsGeometry get dimensions => const EdgeInsets.all(10.0);
+
+  @override
+  Path getInnerPath(Rect rect, {TextDirection? textDirection}) => Path()
+    ..moveTo(rect.right, rect.top)
+    ..lineTo(rect.left, (rect.top + rect.bottom) / 2)
+    ..lineTo(rect.right, rect.bottom);
+
+  @override
+  Path getOuterPath(Rect rect, {TextDirection? textDirection}) => Path()
+    ..fillType = PathFillType.evenOdd
+    ..addPath(getInnerPath(rect), Offset.zero);
+
+  @override
+  void paint(Canvas canvas, Rect rect, {TextDirection? textDirection}) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawPath(
+      getInnerPath(rect),
+      paint,
+    );
+  }
+
+  @override
+  ShapeBorder scale(double t) => SwipeIndicatorShape(color: color, strokeWidth: strokeWidth * t);
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 
 import '../../../../model/tokens/token.dart';
+import '../folder_widgets/token_folder_expandable.dart';
 import 'token_action.dart';
 
 class TokenWidgetSlideable extends StatelessWidget {
@@ -24,6 +25,20 @@ class TokenWidgetSlideable extends StatelessWidget {
       children: [
         tile,
         for (var item in stack) item,
+        Positioned.fill(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 3,
+                height: 999,
+                margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+                decoration: ShapeDecoration(shape: SwipeIndicatorShape(color: Theme.of(context).dividerColor)),
+              ),
+            ],
+          ),
+        ),
       ],
     );
     return actions.isNotEmpty
